@@ -1,0 +1,35 @@
+Shell Script for to add and mount new EBS volume when EC2 instance Disk usage reaches 50%
+=========================================================================================
+
+
+#!/bin/bash
+
+TOTAL_DISK_USAGE="$(df -h | awk '$NF=="/"{printf "%s\n", $5}')"
+DISK_USAGE_THRESHOLD="11%"
+
+
+if [ "$DISK_USAGE_THRESHOLD" \< "$TOTAL_DISK_USAGE" ] ; then
+  VOL_DATA="$(aws ec2 create-volume --size 1 --region us-east-1 --availability-zone us-east-1a --volume-type gp2)"
+  echo "wait for 20s"
+  sleep 20s
+  #echo $VOL_DATA
+  #sleep 5s
+  VID=$(echo "$VOL_DATA" | jq '.VolumeId' )
+  echo $VID
+  echo overexide
+  id="$(aws ec2 describe-instances --filters Name=tag:Name,Values="lucky" --query 'Reservations[].Instances[].InstanceId' --output text)" 
+  aws ec2 attach-volume --volume-id $vol --instance-id $id --device /dev/sda2
+  lsblk
+  sleep 20s
+  mkfs.ext4  /dev/xvdb
+  mkdir -m 000 /vol
+  mount /dev/xvdb /vol
+  df -h
+  cd /vol
+else
+  echo $TOTAL_DISK_USAGE  ------- $DISK_USAGE_THRESHOLD
+  echo Not required extra disk
+  exit 0
+
+fi
+
